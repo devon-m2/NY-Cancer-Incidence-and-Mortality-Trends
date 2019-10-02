@@ -1,0 +1,93 @@
+---
+title: "NY State Cancer Trends"
+author: "Devon Morgan"
+date: "10/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(httr)
+library(readr)
+knitr::opts_chunk$set(
+  fig.width = 10,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+```
+
+## Import Data from NY Cancer Registry
+This project imports current New York State reported cancer incidence and mortality data reported on health.ny.gov. The data reports cancer incidence and mortality trends by sub-type from 1976-2016. 
+
+```{r}
+# Import data from NY Cancer Registry and Convert to Table
+url = "https://www.health.ny.gov/statistics/cancer/registry/vol3/v3nys.htm"
+cancer_data = read_html(url)
+
+cancer_data %>%
+  html_nodes(css = "table")
+
+table_cancer = (cancer_data %>% html_nodes(css = "table")) %>% 
+  .[[1]] %>%
+  html_table(fill=TRUE)
+
+# Export data to CSV
+
+write_csv(table_cancer, "./data/cancerdata.csv")
+
+```
+
+## Read in New CSV and Tidy Data
+
+```{r}
+clean_cancer_data = read_csv("./data/cancerdata_clean.csv") %>% 
+  janitor::clean_names() %>% 
+  select(site_of_cancer, diag_death_time_period, incidence_males_rate_per_100_000_males, incidence_females_rate_per_100_000_females)
+
+tidy_male_cancer_data = clean_cancer_data %>% 
+  select(-incidence_females_rate_per_100_000_females) %>% 
+  filter(site_of_cancer == "Lung and bronchus" | site_of_cancer == "Kidney and renal pelvis" |site_of_cancer =="Urinary bladder (incl. in situ)" | site_of_cancer =="Thyroid" | site_of_cancer =="Non-Hodgkin lymphomas")
+
+tidy_female_cancer_data = clean_cancer_data %>% 
+  select(-incidence_males_rate_per_100_000_males) %>% 
+  filter(site_of_cancer == "Lung and bronchus" | site_of_cancer == "Kidney and renal pelvis" |site_of_cancer =="Urinary bladder (incl. in situ)" | site_of_cancer =="Thyroid" | site_of_cancer =="Non-Hodgkin lymphomas" |site_of_cancer =="Female breast")
+```
+
+## Visualize Trends in Incidence Over Time
+The following graphs show 
+### Cancer Trends in Males, by Cancer Site
+```{r}
+ggplot(tidy_male_cancer_data, aes(x = diag_death_time_period, y = incidence_males_rate_per_100_000_males, color = site_of_cancer, group = site_of_cancer)) +
+  geom_point(alpha = .5) +
+  geom_line() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, hjust=1)) +
+  labs(title = "New York State Cancer Incidence Trends in Males from 1976-2015, by Cancer Site",
+      x = "Time Period",
+      y = "Incidence Rate per 100,000",
+      caption = "Source: New York State Cancer Registry
+      Rates are per 100,000 persons, age-adjusted to the 2000 US standard population",
+    color = "Cancer Site")
+
+```
+
+### Cancer Trends in Females, by Cancer Site
+
+```{r}
+ggplot(tidy_female_cancer_data, aes(x = diag_death_time_period, y = incidence_females_rate_per_100_000_females, color = site_of_cancer, group = site_of_cancer)) +
+  geom_point(alpha = .5) +
+  geom_line() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle=60, hjust=1)) +
+  labs(title = "New York State Cancer Incidence Trends in Females from 1976-2015, by Cancer Site",
+      x = "Time Period",
+      y = "Incidence Rate per 100,000",
+      caption = "Source: New York State Cancer Registry
+      Rates are per 100,000 persons, age-adjusted to the 2000 US standard population",
+      color = "Cancer Site"
+    )
+```
+
